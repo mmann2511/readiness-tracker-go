@@ -10,9 +10,11 @@ import (
 )
 
 type Operator struct {
-	ID     string
-	Rank   string
-	Flight string
+	ID         string
+	Rank       string
+	Flight     string
+	Status     string
+	TotalScore int
 }
 
 func insertOperator(db *sql.DB, op Operator) {
@@ -24,6 +26,67 @@ func insertOperator(db *sql.DB, op Operator) {
 	}
 
 	fmt.Println("Operator succesfully inserted")
+}
+
+func getOperatorsTotalScore(db *sql.DB) []Operator {
+	operators := []Operator{}
+
+	rows, err := db.Query("SELECT operator_id, status FROM readiness ORDER BY total_score DESC")
+	if err != nil {
+		log.Fatal("Failed to SELECT operators by total_score DESC", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var op Operator
+		err := rows.Scan(&op.ID, &op.Status)
+		if err != nil {
+			log.Fatal("Failed rows.Scan", err)
+		}
+		operators = append(operators, op)
+	}
+
+	fmt.Println("GET Operators total_score DESC success")
+
+	return operators
+}
+
+func getOperatorsFromFlight(db *sql.DB, flight string) []Operator {
+	// make a list to return
+	operators := []Operator{}
+
+	// open a Query to the database
+	rows, err := db.Query("SELECT operator_id, total_score FROM readiness WHERE flight = $1 ORDER BY total_score DESC", flight)
+	if err != nil {
+		log.Fatal("Query to getOperatorsFromFlight failed", err)
+	}
+	defer rows.Close()
+
+	// now loop through query
+	for rows.Next() {
+		// create operator to append to list
+		var op Operator
+		err := rows.Scan(&op.ID, &op.TotalScore)
+		if err != nil {
+			log.Fatal("Failed rows.Scan", err)
+		}
+		operators = append(operators, op)
+	}
+
+	fmt.Println("Get Ops from Flight total_score DESC success")
+
+	return operators
+}
+
+func updateOperatorFlight(db *sql.DB, opID string, flight string) {
+	// updates an operators flight. Take operator ID and a new Flight as parameters
+	_, err := db.Exec("UPDATE readiness SET flight = $1 WHERE operator_id = $2", flight, opID)
+	if err != nil {
+		log.Fatal("updateOperatorFlight failed", err)
+	}
+
+	fmt.Println("updateOperatorFlight success!")
+
 }
 
 func recordTest(db *sql.DB, op Operator, scores map[string]float64) {
